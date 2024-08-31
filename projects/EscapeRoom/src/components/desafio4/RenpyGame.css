@@ -1,0 +1,23 @@
+/* RempyGame.css */
+
+/* Asegura que el contenedor ocupe todo el espacio de la ventana */
+.rempy-game-container {
+  width: 100%;
+  height: 100vh; /* Ocupa la altura total de la ventana */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000; /* Fondo negro para una mejor integración */
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Estilo para el iframe que contiene el juego */
+.rempy-game-iframe {
+  width: 100%;
+  height: 100%;
+  border: none; /* Sin bordes alrededor del iframe */
+  display: block; /* Elimina espacio blanco debajo del iframe */
+  flex-grow: 1; /* Asegura que el iframe ocupe todo el espacio disponible */
+}

@@ -1,0 +1,43 @@
+.explanation-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.explanation {
+    text-align: center;
+    padding: 30px;
+    background-color: #2c2c2c; /* Cambia de negro a un gris oscuro */
+    border-radius: 10px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.5); /* Aumentar y suavizar la sombra */
+    color: #ffffff; /* Mantener el color de texto blanco */
+    width: 80%;
+    max-width: 600px;
+}
+
+.explanation h2 {
+    color: #f0f0f0; /* Un poco menos blanco para suavizar el contraste */
+    margin-bottom: 20px;
+}
+
+.explanation p {
+    font-size: 18px;
+    color: #e0e0e0; /* Ajuste de color de texto a un gris claro */
+    margin-bottom: 20px;
+}
+
+.start-challenge-button {
+    padding: 10px 20px;
+    font-size: 18px;
+    background-color: #f0f0f0; /* Botón con fondo gris claro */
+    color: #333; /* Texto del botón en gris oscuro para mejor contraste */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.start-challenge-button:hover {
+    background-color: #e0e0e0; /* Color del botón al pasar el ratón */
+}

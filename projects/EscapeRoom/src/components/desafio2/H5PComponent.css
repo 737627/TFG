@@ -1,0 +1,22 @@
+.h5p-iframe-wrapper {
+  position: relative;
+  padding: 20px;
+}
+
+.info-tfg-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #000000; /* Color morado oscuro */
+  color: #ffffff; /* Texto blanco */
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 20px; /* Espacio superior */
+  display: inline-block;
+  margin-left: 10px; /* Espacio entre este botón y otros elementos */
+}
+
+.info-tfg-button:hover {
+  background-color: #4C3BCF; /* Cambia a un morado medio al pasar el ratón */
+}
