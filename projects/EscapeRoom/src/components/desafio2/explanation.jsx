@@ -10,6 +10,9 @@ const Explanation = ({ onContinue }) => (
             <p>
                 Este ejercicio te ayudará a entender mejor cómo estructurar una propuesta de TFG de manera efectiva. ¡Buena suerte!
             </p>
+            <p>
+                Recuerda que la entrega de la propuesta debe realizarse 45 días naturales antes de la fecha en que se va a presentar. Asegúrate de planificar con antelación para cumplir con este requisito.
+            </p>
             <button onClick={onContinue} className="start-challenge-button">
                 Comenzar Desafío
             </button>

@@ -153,31 +153,72 @@ Module.preRun = Module.preRun || [];
         startStatusTimeout();
     }
 
+    // Función para reportar errores y enviar mensajes a React
     function reportError(s, e) {
+        // Agregar detalles del error al mensaje si existe un objeto de error
         if (e) {
-            console.error(e, e.stack);
-            s += ": " + e.message;
+            console.error(e, e.stack); // Mostrar el error y su stack en la consola
+            s += ": " + e.message; // Añadir el mensaje de error a la cadena de mensaje
         }
 
-        s += "\nMore information may be available in the browser console or contained in the log.";
-
-        printCommon(s);
-
-        errorReported = true;
+        // Log del mensaje de error en la consola
+        console.log(s);
 
         // Enviar mensaje al cliente React
         try {
-            window.parent.postMessage('gameError:' + s, window.location.origin);
+            // Enviar mensaje de error a la ventana padre (React)
+            window.parent.postMessage('gameError:' + s, '*');
         } catch (error) {
+            // Si falla el envío del mensaje, registrar el error en la consola
             console.error('Failed to post message to parent:', error);
         }
-
-        try {
-            Module.addRunDependency("error");
-        } catch (e) {
-            window.stop();
-        }
     }
+
+    // Sobrescribir console.log para capturar mensajes específicos
+    (function () {
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+
+        console.log = function (...args) {
+            originalConsoleLog.apply(console, args);
+            if (args.some(arg => typeof arg === 'string' && arg.includes('gameExitedUnexpectedly'))) {
+                // Enviar mensaje a React si se detecta 'gameExitedUnexpectedly'
+                try {
+                    window.parent.postMessage('gameError:gameExitedUnexpectedly', '*');
+                } catch (error) {
+                    originalConsoleError('Failed to post message to parent:', error);
+                }
+            }
+        };
+
+        console.error = function (...args) {
+            originalConsoleError.apply(console, args);
+            if (args.some(arg => typeof arg === 'string' && arg.includes('gameExitedUnexpectedly'))) {
+                // Enviar mensaje a React si se detecta 'gameExitedUnexpectedly'
+                try {
+                    window.parent.postMessage('gameError:gameExitedUnexpectedly', '*');
+                } catch (error) {
+                    originalConsoleError('Failed to post message to parent:', error);
+                }
+            }
+        };
+    })();
+
+    // Se llama cuando el juego sale inesperadamente
+    window.atExit = () => {
+        if (typeof canvas !== 'undefined') {
+            canvas.remove();
+        }
+        reportError('gameExitedUnexpectedly'); // Enviar mensaje al cliente React
+    };
+
+    // Se llama cuando el juego aborta inesperadamente
+    Module.onAbort = () => {
+        if (typeof canvas !== 'undefined') {
+            canvas.remove();
+        }
+        reportError('gameAborted'); // Enviar mensaje al cliente React
+    };
 
 
     /**
@@ -271,22 +312,6 @@ Module.preRun = Module.preRun || [];
         presplash.remove();
         cancelStatusTimeout();
         hideStatus();
-    };
-
-    window.atExit = () => {
-        // Esta función se llama cuando el juego sale inesperadamente
-        if (typeof canvas !== 'undefined') {
-            canvas.remove();
-        }
-        reportError('gameExitedUnexpectedly'); // Enviar mensaje al cliente React
-    };
-
-    Module.onAbort = () => {
-        // Esta función se llama cuando el juego aborta inesperadamente
-        if (typeof canvas !== 'undefined') {
-            canvas.remove();
-        }
-        reportError('gameAborted'); // Enviar mensaje al cliente React
     };
 
     /**

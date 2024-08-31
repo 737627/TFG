@@ -32,21 +32,23 @@ const RenpyGame = () => {
 
   useEffect(() => {
     const handleGameEndMessage = (event) => {
+      // Verificar que el mensaje proviene del mismo origen para evitar problemas de seguridad
       if (event.origin !== window.location.origin) {
         console.warn('Mensaje de origen desconocido:', event.origin);
         return;
       }
-
-      if (event.data === 'gameExitedUnexpectedly' || event.data === 'gameAborted' || event.data === 'gameFinished') {
-        console.log('Juego terminado o salida inesperada, enviando datos al servidor.');
-
+  
+      // Verificar si el mensaje indica que el juego terminó inesperadamente
+      if (event.data === 'gameError:gameExitedUnexpectedly') {
+        console.log('Juego terminó inesperadamente, enviando datos al servidor.');
+  
         // Calcular el tiempo total desde el inicio del primer desafío
         const startTime = localStorage.getItem('startTime');
         if (startTime) {
           const endTime = Date.now();
           const totalTime = (endTime - startTime) / 1000; // Tiempo total en segundos
           console.log(`Tiempo total: ${totalTime} segundos`);
-
+  
           // Enviar el tiempo total al servidor
           socket.emit('finishChallenge', {
             roomCode: roomCode,
@@ -57,7 +59,7 @@ const RenpyGame = () => {
         } else {
           console.warn('No se encontró el tiempo de inicio en localStorage.');
         }
-
+  
         // Redirigir a la página de clasificación o al menú dependiendo de si hay roomCode
         if (roomCode) {
           navigate(`/leaderboard/${roomCode}`);
@@ -66,13 +68,16 @@ const RenpyGame = () => {
         }
       }
     };
-
+  
+    // Añadir un listener para los mensajes del juego
     window.addEventListener('message', handleGameEndMessage);
-
+  
+    // Limpiar el listener cuando el componente se desmonte
     return () => {
       window.removeEventListener('message', handleGameEndMessage);
     };
   }, [navigate, roomCode]);
+  
 
   // Mostrar un mensaje de carga mientras se verifica la sala
   if (roomCode && !roomExists) {
