@@ -27,6 +27,11 @@ const H5PComponent = ({ h5pFilePath }) => {
                 }
             });
         }
+
+        // Asignar un persistentId si no existe
+        if (!localStorage.getItem('persistentId')) {
+            localStorage.setItem('persistentId', socket.id);
+        }
     }, [roomCode, navigate]);
 
     useEffect(() => {
@@ -62,9 +67,12 @@ const H5PComponent = ({ h5pFilePath }) => {
                             if (score.raw === score.max) {
                                 console.log('Full score achieved, navigating to next challenge...');
 
+                                const persistentId = localStorage.getItem('persistentId');
+                                console.log(`Emitiendo 'finishChallenge' para sala: ${roomCode}, jugador: ${persistentId}`);
+
                                 socket.emit('finishChallenge', {
                                     roomCode: roomCode,
-                                    playerId: socket.id,
+                                    persistentId: persistentId, // Usar persistentId en lugar de socket.id
                                     challengeId: 2
                                 });
 

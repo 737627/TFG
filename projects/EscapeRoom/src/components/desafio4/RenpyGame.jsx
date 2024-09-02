@@ -11,7 +11,7 @@ const RenpyGame = () => {
   const navigate = useNavigate();
   const { roomCode } = useParams();
   const [showExplanation, setShowExplanation] = useState(true); // Estado para mostrar la explicación
-  const [roomExists, setRoomExists] = useState(false); // Estado para verificar si la sala existe
+  const [roomExists, setRoomExists] = useState(null); // Estado para verificar si la sala existe
 
   useEffect(() => {
     if (roomCode) {
@@ -19,14 +19,15 @@ const RenpyGame = () => {
       socket.emit('checkRoomExists', roomCode, (response) => {
         if (response.exists) {
           setRoomExists(true);
+          console.log(`Sala ${roomCode} existe.`);
         } else {
           console.warn('La sala no existe, redirigiendo al menú.');
           navigate('/menu');
         }
       });
     } else {
-      // Si no hay roomCode, redirigir al menú directamente
-      navigate('/Challenge4');
+      // Si no hay roomCode, se asume que es modo individual y no se necesita verificación de sala
+      setRoomExists(true);
     }
   }, [roomCode, navigate]);
 
@@ -37,50 +38,46 @@ const RenpyGame = () => {
         console.warn('Mensaje de origen desconocido:', event.origin);
         return;
       }
-  
+
       // Verificar si el mensaje indica que el juego terminó inesperadamente
       if (event.data === 'gameError:gameExitedUnexpectedly') {
         console.log('Juego terminó inesperadamente, enviando datos al servidor.');
-  
-        // Calcular el tiempo total desde el inicio del primer desafío
-        const startTime = localStorage.getItem('startTime');
-        if (startTime) {
-          const endTime = Date.now();
-          const totalTime = (endTime - startTime) / 1000; // Tiempo total en segundos
-          console.log(`Tiempo total: ${totalTime} segundos`);
-  
-          // Enviar el tiempo total al servidor
+
+        // Obtener `persistentId` desde localStorage o el estado
+        const persistentId = localStorage.getItem('persistentId') || socket.id;
+
+        // Comprobar si ya se ha emitido finishChallenge
+        const hasFinished = localStorage.getItem(`hasFinished-${roomCode}`);
+        if (!hasFinished) {
+          console.log(`Emitiendo 'finishChallenge' para sala: ${roomCode}, jugador: ${persistentId}`);
           socket.emit('finishChallenge', {
             roomCode: roomCode,
-            playerId: socket.id,
-            challengeId: 4, // ID para el desafío final
-            totalTime, // Enviar el tiempo total transcurrido
+            persistentId: persistentId,
+            challengeId: 4 // ID para este desafío
           });
-        } else {
-          console.warn('No se encontró el tiempo de inicio en localStorage.');
+          localStorage.setItem(`hasFinished-${roomCode}`, 'true');
         }
-  
-        // Redirigir a la página de clasificación o al menú dependiendo de si hay roomCode
-        if (roomCode) {
+
+        // Redirigir a la página adecuada dependiendo de si hay roomCode y si existe
+        if (roomCode && roomExists) {
           navigate(`/leaderboard/${roomCode}`);
         } else {
-          navigate('/menu'); // Redirigir al menú si no hay roomCode
+          navigate('/challenge4'); // Si no hay roomCode o es modo individual, ir al siguiente desafío
         }
       }
     };
-  
+
     // Añadir un listener para los mensajes del juego
     window.addEventListener('message', handleGameEndMessage);
-  
+
     // Limpiar el listener cuando el componente se desmonte
     return () => {
       window.removeEventListener('message', handleGameEndMessage);
     };
-  }, [navigate, roomCode]);
-  
+  }, [navigate, roomCode, roomExists]);
 
   // Mostrar un mensaje de carga mientras se verifica la sala
-  if (roomCode && !roomExists) {
+  if (roomCode && roomExists === null) {
     return <div>Cargando...</div>;
   }
 
@@ -96,8 +93,8 @@ const RenpyGame = () => {
             title="Ren'Py Game"
           />
           {/* Botón de Información TFG */}
-          <button 
-            className="info-tfg-button" 
+          <button
+            className="info-tfg-button"
             onClick={() => window.open('https://eupt.unizar.es/TFE', '_blank')}
             style={{ marginTop: '20px' }} // Estilo en línea para separación visual
           >

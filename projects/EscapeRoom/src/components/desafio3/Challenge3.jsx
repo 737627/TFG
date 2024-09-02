@@ -12,7 +12,7 @@ const socket = io('http://localhost:5000'); // Asegúrate de ajustar la URL seg�
 
 const questions = [
     {
-        question: '¿Qué debe hacer el alumno para entregar su TFG?',
+        question: '¿Qué debe hacer el alumno para entregar la memoria de su TFG?',
         options: [
             'Enviar el TFG por correo electrónico al tutor.',
             'Depositar el TFG en la plataforma DEPOSITA y enviar la solicitud de defensa.', // Correcta
@@ -21,10 +21,10 @@ const questions = [
         correctAnswer: 1,
     },
     {
-        question: '¿Qué documentos debe revisar y aprobar el tutor?',
+        question: '¿Qué documentos debe aportar el tutor para el depósito?',
         options: [
             'El plan de estudios del alumno.',
-            'El informe de evaluación del TFG y aprobarlo para la defensa.', // Correcta
+            'El documento Autorización del Director debidamente firmado.', // Correcta
             'Las calificaciones del alumno en todas las asignaturas.',
         ],
         correctAnswer: 1,
@@ -33,25 +33,25 @@ const questions = [
         question: '¿Qué es lo que tiene que hacer el tribunal?',
         options: [
             'Proporcionar una lista de temas para el TFG.',
-            'Evaluar el TFG durante la defensa y emitir una calificación.', // Correcta
             'Organizar los horarios de las clases.',
+            'Evaluar el TFG a partir de la memoria y la defensa y emitir una calificación.', // Correcta
         ],
-        correctAnswer: 1,
+        correctAnswer: 2,
     },
     {
-        question: '¿Qué formato debe seguir el TFG para su presentación?',
+        question: '¿Qué formato debe seguir la memoria del TFG?',
         options: [
+            'Cumplir con las normas de presentación establecidas en la normativa de la Escuela.', // Correcta
             'Ser escrito a mano en folios.',
-            'Cumplir con las normas de presentación establecidas por la facultad.', // Correcta
             'Ser presentado en un formato libre elegido por el alumno.',
         ],
-        correctAnswer: 1,
+        correctAnswer: 0,
     },
     {
         question: '¿Qué debe hacer el alumno para la defensa del TFG?',
         options: [
             'Solo asistir el día de la defensa sin preparación previa.',
-            'Preparar una presentación para la defensa, que puede ser presencial o telemática.', // Correcta
+            'Preparar una presentación para la defensa pública ante el tribunal evaluador.', // Correcta
             'Enviar una grabación de video en lugar de asistir a la defensa.',
         ],
         correctAnswer: 1,
@@ -60,21 +60,22 @@ const questions = [
         question: '¿Qué plazos debe respetar el alumno en el proceso de entrega del TFG?',
         options: [
             'No hay plazos específicos, el alumno puede entregar cuando desee.',
-            'Debe respetar los plazos establecidos para el depósito, solicitud de defensa, y trámites.', // Correcta
+            'Debe respetar el plazo de presentación de la propuesta y esperar a una de las fechas de depósitos públicas en la web de la EUPT.', // Correcta
             'Puede entregar el TFG en cualquier momento antes de graduarse.',
         ],
         correctAnswer: 1,
     },
     {
-        question: '¿Qué puede hacer el tutor si encuentra que el TFG necesita modificaciones antes de su aprobación?',
+        question: '¿Cuáles de los siguientes documentos deben adjuntarse junto con la memoria del TFG según la diapositiva?',
         options: [
-            'Solicitar modificaciones al alumno antes de aprobar el TFG para la defensa.', // Correcta
-            'Aprobarlo de todas formas para no retrasar el proceso.',
-            'Ignorar los errores y dejar que el tribunal los corrija.',
+            'Autorización del Director, Pantalla encuesta egresados, Documento de resguardo.',
+            'Correo de confirmación del repositorio, Pantalla encuesta egresados, Declaración de autoría, Documento de resguardo.',
+            'Autorización del Director, Correo de confirmación del repositorio, Pantalla encuesta egresados, Declaración de autoría, Documento de resguardo.', // Correcta
         ],
-        correctAnswer: 0,
+        correctAnswer: 2,
     },
 ];
+
 
 const Challenge3 = () => {
     const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -85,7 +86,6 @@ const Challenge3 = () => {
     const navigate = useNavigate(); // Hook para navegación
     const { roomCode } = useParams(); // Obtener roomCode de los parámetros de la URL
 
-    // Verificar si la sala existe antes de permitir avanzar
     useEffect(() => {
         if (roomCode) {
             socket.emit('checkRoomExists', roomCode, (response) => {
@@ -95,16 +95,29 @@ const Challenge3 = () => {
                 }
             });
         }
+
+        // Asignar un persistentId si no existe
+        if (!localStorage.getItem('persistentId')) {
+            localStorage.setItem('persistentId', socket.id);
+        }
     }, [roomCode, navigate]);
 
     // Emitir evento al servidor cuando el jugador termine el desafío correctamente
     useEffect(() => {
         if (currentQuestion === questions.length - 1 && isCorrect) {
-            socket.emit('finishChallenge', {
-                roomCode: roomCode,
-                playerId: socket.id,
-                challengeId: 3, // ID para este desafío
-            });
+            // Obtener `persistentId` desde localStorage
+            const persistentId = localStorage.getItem('persistentId');
+            console.log(`Player has won in room ${roomCode} with persistentId: ${persistentId}. Proceeding to next challenge.`);
+
+            if (persistentId) {
+                socket.emit('finishChallenge', {
+                    roomCode: roomCode,
+                    persistentId: persistentId, // Usar persistentId en lugar de socket.id
+                    challengeId: 3, // ID para este desafío
+                });
+            } else {
+                console.error('No se pudo obtener persistentId para emitir finishChallenge.');
+            }
         }
     }, [currentQuestion, isCorrect, roomCode]);
 
@@ -122,16 +135,22 @@ const Challenge3 = () => {
                 setSelectedOption(null);
                 setIsCorrect(false);
             } else {
-                // Emitir evento de finalización de desafío al servidor
-                socket.emit('finishChallenge', {
-                    roomCode: roomCode,
-                    playerId: socket.id,
-                    challengeId: 3,
-                });
-                if (roomCode) {
-                    navigate(`/challenge4/${roomCode}`); // Navegar a la siguiente ruta con roomCode
+                const persistentId = localStorage.getItem('persistentId');
+                console.log(`Emitiendo 'finishChallenge' para sala: ${roomCode}, jugador: ${persistentId}`);
+
+                if (persistentId) {
+                    socket.emit('finishChallenge', {
+                        roomCode: roomCode,
+                        persistentId: persistentId, // Usar persistentId en lugar de socket.id
+                        challengeId: 3,
+                    });
+                    if (roomCode) {
+                        navigate(`/challenge4/${roomCode}`); // Navegar a la siguiente ruta con roomCode
+                    } else {
+                        navigate('/menu'); // Navegar al menú de desafíos si no hay roomCode
+                    }
                 } else {
-                    navigate('/menu'); // Navegar al menú de desafíos si no hay roomCode
+                    console.error('No se pudo obtener persistentId para emitir finishChallenge.');
                 }
             }
         }

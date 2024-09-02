@@ -12,7 +12,15 @@ const JoinRoom = () => {
   const [availableRooms, setAvailableRooms] = useState([]);
   const navigate = useNavigate();
 
+  // Generar o recuperar el ID persistente
+  const [persistentId, setPersistentId] = useState(
+    localStorage.getItem('persistentId') || generateNewId()
+  );
+
   useEffect(() => {
+    // Guardar el persistentId en localStorage para futuras sesiones
+    localStorage.setItem('persistentId', persistentId);
+
     // Solicitar lista de habitaciones disponibles al conectar
     socket.on('connect', () => {
       socket.emit('getAvailableRooms');
@@ -58,13 +66,13 @@ const JoinRoom = () => {
       socket.off('playerReadyStatus', handlePlayerReadyStatus);
       socket.off('startGame', handleStartGame);
     };
-  }, [navigate, roomCode]);
+  }, [navigate, roomCode, persistentId]);
 
   const handleJoinRoom = (code) => {
     const joinCode = code || roomCode;
     if (joinCode) {
       setRoomCode(joinCode);
-      socket.emit('joinRoom', joinCode, (response) => {
+      socket.emit('joinRoom', { roomCode: joinCode, persistentId }, (response) => {
         if (response.success) {
           setRoomJoined(true);
         } else {
@@ -80,7 +88,7 @@ const JoinRoom = () => {
   const handleReady = () => {
     setIsReady(true);
     if (roomCode) {
-      socket.emit('playerReady', roomCode);
+      socket.emit('playerReady', { roomCode, persistentId });
       console.log('Jugador marcado como listo en la sala:', roomCode);
     } else {
       console.error('No se puede marcar como listo, no hay código de sala establecido.');
@@ -131,7 +139,7 @@ const JoinRoom = () => {
           {Array.isArray(players) && players.length > 0 ? (
             <ul>
               {players.map((player) => (
-                <li key={player.id}>
+                <li key={player.persistentId}>
                   {player.name} - {player.isReady ? 'Listo' : 'No listo'}
                 </li>
               ))}
@@ -149,5 +157,10 @@ const JoinRoom = () => {
     </div>
   );
 };
+
+// Función para generar un nuevo ID persistente
+function generateNewId() {
+  return 'player-' + Math.random().toString(36).substr(2, 9);
+}
 
 export default JoinRoom;

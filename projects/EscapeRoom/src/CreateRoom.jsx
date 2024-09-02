@@ -10,7 +10,15 @@ const CreateRoom = () => {
   const [isReady, setIsReady] = useState(false);
   const navigate = useNavigate();
 
+  // Generar o recuperar el ID persistente
+  const [persistentId, setPersistentId] = useState(
+    localStorage.getItem('persistentId') || generateNewId()
+  );
+
   useEffect(() => {
+    // Guardar el persistentId en localStorage para futuras sesiones
+    localStorage.setItem('persistentId', persistentId);
+
     // Manejar la creación de la sala
     const handleRoomCreated = (code) => {
       console.log('Sala creada con código:', code);
@@ -59,10 +67,10 @@ const CreateRoom = () => {
       socket.off('playerReadyStatus', handlePlayerReadyStatus);
       socket.off('startGame', handleStartGame);
     };
-  }, [navigate, roomCode]);
+  }, [navigate, roomCode, persistentId]);
 
   const handleCreateRoom = () => {
-    socket.emit('createRoom', (response) => {
+    socket.emit('createRoom', { persistentId, playerName: 'Jugador 1' }, (response) => {
       if (response && response.roomCode) {
         console.log('Sala creada con éxito:', response.roomCode);
         setRoomCode(response.roomCode);
@@ -78,7 +86,7 @@ const CreateRoom = () => {
       player.id === 'self' ? { ...player, isReady: true } : player
     );
     setPlayers(updatedPlayers);
-    socket.emit('playerReady', roomCode);
+    socket.emit('playerReady', { roomCode, persistentId });
     console.log('Jugador marcado como listo');
   };
 
@@ -99,7 +107,7 @@ const CreateRoom = () => {
           {Array.isArray(players) && players.length > 0 ? (
             <ul>
               {players.map((player, index) => (
-                <li key={player.id}>
+                <li key={player.persistentId || player.id}>
                   {player.name} - {player.isReady ? 'Listo' : 'No listo'}
                 </li>
               ))}
@@ -125,5 +133,10 @@ const CreateRoom = () => {
     </div>
   );
 };
+
+// Función para generar un nuevo ID persistente
+function generateNewId() {
+  return 'player-' + Math.random().toString(36).substr(2, 9);
+}
 
 export default CreateRoom;

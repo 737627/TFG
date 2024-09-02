@@ -8,6 +8,7 @@
   border-radius: 12px; /* Bordes redondeados */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Sombra para dar profundidad */
   text-align: center; /* Alinear texto al centro */
+  font-family: Arial, sans-serif; /* Fuente predeterminada */
 }
 
 /* Título del leaderboard */
@@ -17,30 +18,30 @@
   color: #ffffff; /* Texto blanco */
 }
 
-/* Tabla de posiciones */
-.leaderboard-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
+/* Lista de posiciones */
+.leaderboard-list {
+  list-style: none;
+  padding: 0;
 }
 
-.leaderboard-table th, .leaderboard-table td {
+.leaderboard-list li {
   padding: 12px 15px;
   text-align: center;
   border-bottom: 1px solid #444; /* Línea divisoria para filas */
 }
 
-.leaderboard-table th {
-  background-color: #4CAF50; /* Verde para encabezados */
-  color: white;
-}
-
-.leaderboard-table tr:nth-child(even) {
+.leaderboard-list li:nth-child(even) {
   background-color: #3a3a3a; /* Fila gris oscuro para pares */
 }
 
-.leaderboard-table tr:hover {
+.leaderboard-list li:hover {
   background-color: #454545; /* Color de fondo al pasar el ratón */
+}
+
+/* Clase para resaltar al jugador actual */
+.leaderboard-list .current-player {
+  background-color: #5a5a5a; /* Color diferente para el jugador actual */
+  font-weight: bold;
 }
 
 /* Botón de volver al inicio o jugar de nuevo */

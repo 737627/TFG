@@ -78,15 +78,12 @@ io.on('connection', (socket) => {
     const roomsList = await getAvailableRoomsList();
     socket.emit('availableRooms', roomsList);
   });
+
   // Verificar si la sala existe
   socket.on('checkRoomExists', async (roomCode, callback) => {
     try {
       const room = await Room.findOne({ token: roomCode });
-      if (room) {
-        callback({ exists: true });
-      } else {
-        callback({ exists: false });
-      }
+      callback({ exists: !!room });
     } catch (error) {
       console.error('Error checking if room exists:', error);
       callback({ exists: false });
@@ -94,35 +91,35 @@ io.on('connection', (socket) => {
   });
 
   // Crear una sala
-  socket.on('createRoom', async () => {
+  socket.on('createRoom', ({ persistentId, playerName }, callback) => {
     const roomCode = Math.random().toString(36).substring(2, 7);
     const newRoom = new Room({
       token: roomCode,
       players: [{
         id: socket.id,
-        name: `Jugador 1`,
-        isReady: false,
-        startTime: null,
-        endTime: null,
-        totalTime: 0
+        persistentId: persistentId,
+        name: playerName || `Jugador 1`,
+        isReady: false
       }],
       maxPlayers: 4,
       state: 'open'
     });
 
-    try {
-      await newRoom.save(); // Guarda la sala en MongoDB
-      socket.join(roomCode);
-      socket.emit('roomCreated', roomCode);
-      io.emit('availableRooms', await getAvailableRoomsList()); // Cambiado a availableRooms
-      console.log(`Room ${roomCode} created and saved to MongoDB`);
-    } catch (error) {
-      console.error('Error saving room:', error);
-    }
+    newRoom.save()
+      .then(async () => {
+        socket.join(roomCode);
+        callback({ roomCode });
+        io.emit('availableRooms', await getAvailableRoomsList()); // Actualizar lista de salas disponibles
+        console.log(`Room ${roomCode} created and saved to MongoDB`);
+      })
+      .catch((error) => {
+        console.error('Error saving room:', error);
+        callback({ message: 'Error al crear la sala.' });
+      });
   });
 
   // Unirse a una sala
-  socket.on('joinRoom', async (roomCode, callback) => {
+  socket.on('joinRoom', async ({ roomCode, persistentId, playerName }, callback) => {
     try {
       const room = await Room.findOne({ token: roomCode });
 
@@ -132,28 +129,29 @@ io.on('connection', (socket) => {
           return;
         }
 
-        const existingPlayer = room.players.find(player => player.id === socket.id);
+        const existingPlayer = room.players.find(player => player.persistentId === persistentId);
 
         if (!existingPlayer) {
           const newPlayer = {
             id: socket.id,
-            name: `Jugador ${room.players.length + 1}`,
-            isReady: false,
-            totalTime: 0
+            persistentId: persistentId,
+            name: playerName || `Jugador ${room.players.length + 1}`,
+            isReady: false
           };
           room.players.push(newPlayer);
-          await room.save(); // Guarda los cambios en MongoDB
+          await room.save();
           socket.join(roomCode);
           io.in(roomCode).emit('playerJoined', room.players);
           callback({ success: true });
         } else {
+          // Actualizar el id de socket del jugador existente
           existingPlayer.id = socket.id;
           await room.save();
+          socket.join(roomCode);
           io.in(roomCode).emit('playerJoined', room.players);
           callback({ success: true, message: 'Reconectado a la sala.' });
         }
 
-        // Emitir actualización de salas disponibles
         io.emit('availableRooms', await getAvailableRoomsList());
 
       } else {
@@ -166,14 +164,14 @@ io.on('connection', (socket) => {
   });
 
   // Marcar jugador como listo
-  socket.on('playerReady', async (roomCode) => {
+  socket.on('playerReady', async ({ roomCode, persistentId }) => {
     try {
       const room = await Room.findOne({ token: roomCode });
       if (room) {
-        const player = room.players.find(p => p.id === socket.id);
+        const player = room.players.find(p => p.persistentId === persistentId);
         if (player) {
           player.isReady = true;
-          await room.save(); // Actualiza la sala en MongoDB
+          await room.save();
           io.in(roomCode).emit('playerReadyStatus', room.players);
         }
       }
@@ -189,11 +187,10 @@ io.on('connection', (socket) => {
       if (room) {
         const allPlayersReady = room.players.every(player => player.isReady);
         if (allPlayersReady) {
-          room.startTime = Date.now();
           room.state = 'inProgress';
-          await room.save(); // Actualiza la sala en MongoDB
+          await room.save();
           io.in(roomCode).emit('startGame');
-          io.emit('availableRooms', await getAvailableRoomsList()); // Cambiado a availableRooms
+          io.emit('availableRooms', await getAvailableRoomsList());
         } else {
           console.log('No todos los jugadores están listos');
         }
@@ -203,7 +200,85 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Desconectar cliente
+  socket.on('finishChallenge', async ({ roomCode, persistentId, challengeId }) => {
+    console.log(`Evento 'finishChallenge' recibido para sala: ${roomCode}, jugador: ${persistentId}, desafío: ${challengeId}`);
+    if (!persistentId) {
+        console.warn('persistentId no válido recibido, no se puede procesar finishChallenge.');
+        return;
+    }
+    try {
+        const room = await Room.findOne({ token: roomCode });
+        if (room) {
+            console.log(`Sala encontrada: ${roomCode}`);
+            const player = room.players.find(p => p.persistentId === persistentId);
+            if (player) {
+                console.log(`Jugador encontrado: ${player.name}`);
+
+                // Solo actualizar la clasificación si es el último desafío
+                if (challengeId === 4) {
+                    // Añadir el jugador al final de la clasificación si no está ya
+                    if (!room.arrivalOrder.includes(player.name)) {
+                        room.arrivalOrder.push(player.name);
+                        console.log(`Añadiendo jugador ${player.name} a la clasificación.`);
+                        await room.save();
+
+                        // Emitir la clasificación actualizada a todos los jugadores en la sala
+                        io.in(roomCode).emit('updateLeaderboard', room.arrivalOrder);
+                        console.log(`Jugador ${player.name} añadido a la clasificación en sala ${roomCode}. Clasificación actual: ${room.arrivalOrder}`);
+                    } else {
+                        console.log(`Jugador ${player.name} ya está en la clasificación, no se añadirá de nuevo.`);
+                    }
+                } else {
+                    console.log(`Jugador ${player.name} completó desafío ${challengeId}, no es el último desafío.`);
+                }
+            } else {
+                console.log(`Jugador con ID persistente ${persistentId} no encontrado en la sala ${roomCode}.`);
+            }
+        } else {
+            console.log(`Sala con código ${roomCode} no encontrada.`);
+        }
+    } catch (error) {
+        console.error('Error al finalizar el desafío:', error);
+    }
+});
+
+// Evento para eliminar la sala
+socket.on('deleteRoom', async (roomCode) => {
+  console.log(`Solicitud de eliminación recibida para la sala: ${roomCode}`);
+  try {
+      const room = await Room.findOne({ token: roomCode });
+      if (room) {
+          await Room.deleteOne({ token: roomCode });
+          console.log(`Sala ${roomCode} eliminada exitosamente.`);
+          io.in(roomCode).emit('roomDeleted'); // Emitir a todos los clientes que la sala ha sido eliminada
+      } else {
+          console.log(`Sala ${roomCode} no encontrada para eliminar.`);
+      }
+  } catch (error) {
+      console.error('Error al eliminar la sala:', error);
+  }
+});
+
+// Evento para manejar solicitud de clasificación
+socket.on('requestLeaderboard', async (roomCode) => {
+    console.log(`Evento 'requestLeaderboard' recibido para sala: ${roomCode}`);
+    try {
+        const room = await Room.findOne({ token: roomCode });
+        if (room && room.arrivalOrder) {
+            // Emitir la lista de jugadores en el orden de llegada
+            socket.emit('showLeaderboard', room.arrivalOrder);
+            console.log(`Clasificación encontrada: ${room.arrivalOrder}`);
+        } else {
+            socket.emit('showLeaderboard', []); // Emitir lista vacía si no hay datos
+            console.log('No se encontró clasificación.');
+        }
+    } catch (error) {
+        console.error('Error fetching leaderboard:', error);
+        socket.emit('showLeaderboard', []); // Emitir lista vacía en caso de error
+    }
+});
+
+  // Manejo de desconexión del cliente
   socket.on('disconnect', async () => {
     console.log('Client disconnected:', socket.id);
     try {
@@ -215,11 +290,11 @@ io.on('connection', (socket) => {
           if (room.players.length === 0) {
             await Room.deleteOne({ token: room.token });
             console.log(`Room ${room.token} deleted as it is empty.`);
+            io.emit('availableRooms', await getAvailableRoomsList()); // Actualizar lista de salas disponibles
           } else {
             await room.save();
             io.in(room.token).emit('playerJoined', room.players);
           }
-          io.emit('availableRooms', await getAvailableRoomsList()); // Cambiado a availableRooms
         }
       }
     } catch (error) {
@@ -227,6 +302,7 @@ io.on('connection', (socket) => {
     }
   });
   
+
 });
 
 server.listen(port, '0.0.0.0', () => {

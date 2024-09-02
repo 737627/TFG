@@ -52,6 +52,11 @@ const Board = () => {
             localStorage.setItem('startTime', Date.now());
         }
 
+        // Asignar un persistentId si no existe
+        if (!localStorage.getItem('persistentId')) {
+            localStorage.setItem('persistentId', socket.id);
+        }
+
         // Limpiar el socket al desmontar
         return () => {
             socket.off('proceedToNextChallenge');
@@ -102,11 +107,12 @@ const Board = () => {
             setHasWon(true);
 
             if (roomCode) {
-                console.log(`Player has won in room ${roomCode}! Proceeding to next challenge.`);
+                const persistentId = localStorage.getItem('persistentId');
+                console.log(`Player has won in room ${roomCode} with persistentId: ${persistentId}. Proceeding to next challenge.`);
                 socket.emit('finishChallenge', {
                     roomCode,
-                    playerId: socket.id,
-                    challengeId: 1
+                    persistentId: persistentId, // Usar persistentId en lugar de socket.id
+                    challengeId: 1 // Ajustar esto si es el último desafío
                 });
             } else {
                 console.log('Player has won in individual mode! Returning to challenge menu.');
